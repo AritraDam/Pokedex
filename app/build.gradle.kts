@@ -39,6 +39,11 @@ android {
     buildFeatures {
         compose = true
     }
+    /*allprojects {
+        tasks.matching { it.name.contains("kapt") }.configureEach {
+            enabled = false
+        }
+    }*/
 }
 
 dependencies {
@@ -88,12 +93,6 @@ dependencies {
     //Dagger - Hilt
     implementation("com.google.dagger:hilt-android:2.51.1")
     kapt("com.google.dagger:hilt-android-compiler:2.51.1")
-
-    implementation ("com.google.dagger:hilt-android:2.33-beta")
-    kapt ("com.google.dagger:hilt-android-compiler:2.33-beta")
-    implementation ("androidx.hilt:hilt-lifecycle-viewmodel:1.0.0-alpha03")
-    kapt ("androidx.hilt:hilt-compiler:1.0.0-beta01")
-    implementation ("androidx.hilt:hilt-navigation-compose:1.0.0-alpha01")
 
     implementation("androidx.palette:palette:1.0.0")
 }
