@@ -1,10 +1,12 @@
 package com.example.dampokedex.pokemonlist
 
+import android.graphics.drawable.BitmapDrawable
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
@@ -14,6 +16,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
@@ -41,12 +44,13 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
-import coil.request.ImageRequest
+import coil3.compose.SubcomposeAsyncImage
+import coil3.request.ImageRequest
+import coil3.request.crossfade
+import coil3.size.Size
 import com.example.dampokedex.R
 import com.example.dampokedex.data.models.PokemonListEntry
-import com.example.dampokedex.ui.theme.Roboto
 import com.example.dampokedex.ui.theme.RobotoCondensed
-import com.google.accompanist.coil.CoilImage
 
 @Composable
 fun PokemonListScreen(
@@ -64,15 +68,17 @@ fun PokemonListScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .align(Alignment.CenterHorizontally)
-                )
+            )
             SearchBar(
                 Modifier
                     .fillMaxWidth()
                     .padding(16.dp),
                 "Search..."
-            ){
+            ) {
 
             }
+            Spacer(modifier = Modifier.height(16.dp))
+            PokemonList(navController)
         }
     }
 }
@@ -127,6 +133,7 @@ fun PokedexEntry(
     var dominantColor by remember {
         mutableStateOf(defaultDominantColor)
     }
+    val context = LocalContext.current
     Box(
         contentAlignment = Alignment.Center,
         modifier = modifier
@@ -146,34 +153,68 @@ fun PokedexEntry(
                     "pokemon_detail_screen/${dominantColor.toArgb()}/${entry.pokemonName}"
                 )
             }
-    ){
+    ) {
         Column {
-            CoilImage(
-                request = ImageRequest.Builder(LocalContext.current)
+            SubcomposeAsyncImage(
+                model = ImageRequest.Builder(LocalContext.current)
                     .data(entry.imageUrl)
-                    .target{
-                        viewModel.calcDominantColor(it) { color ->
+                    .size(Size.ORIGINAL)
+                    .crossfade(true)
+                    .build(),
+                loading = {
+                    CircularProgressIndicator(
+                        color = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier
+                            .scale(0.5f)
+                    )
+                },
+                contentDescription = entry.pokemonName,
+                modifier = Modifier
+                    .size(120.dp)
+                    .align(Alignment.CenterHorizontally),
+                onSuccess = { state ->
+                    val bitmapImage = state.result.image
+                    if (bitmapImage is coil3.BitmapImage) {
+                        val bitmap = bitmapImage.bitmap
+                        val drawable = BitmapDrawable(context.resources, bitmap)
+                        viewModel.calcDominantColor(drawable) { color ->
                             dominantColor = color
                         }
                     }
-                    .build(),
-                contentDescription = entry.pokemonName,
-                fadeIn = true,
-                modifier = Modifier
-                    .size(120.dp)
-            ) {
-                CircularProgressIndicator(
-                    color = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier
-                        .scale(0.5f)
-                )
-            }
+                }
+            )
             Text(
                 text = entry.pokemonName,
                 fontFamily = RobotoCondensed,
                 fontSize = 20.sp,
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier.fillMaxWidth(),
+                textAlign = TextAlign.Center
             )
+        }
+    }
+}
+
+@Composable
+fun PokemonList(
+    navController: NavController,
+    viewModel: PokemonListViewModel = hiltViewModel()
+) {
+    val pokemonList by remember { viewModel.pokemonList }
+    val endReached by remember { viewModel.endReached }
+    val loadError by remember { viewModel.loadError }
+    val isLoading by remember { viewModel.isLoading }
+
+    LazyColumn(contentPadding = PaddingValues(16.dp)) {
+        val itemCount = if (pokemonList.size % 2 == 0) {
+            pokemonList.count() / 2
+        } else {
+            pokemonList.count() / 2 + 1
+        }
+        items(itemCount) {
+            if (it >= itemCount - 1 && !endReached) {
+                viewModel.loadPokemonPaginated()
+            }
+            PokedexRow(rowIndex = it, entries = pokemonList, navController = navController)
         }
     }
 }
@@ -192,7 +233,7 @@ fun PokedexRow(
                 modifier = Modifier.weight(1f)
             )
             Spacer(modifier = Modifier.width(16.dp))
-            if(entries.size >= rowIndex * 2 + 2) {
+            if (entries.size >= rowIndex * 2 + 2) {
                 PokedexEntry(
                     entry = entries[rowIndex * 2 + 1],
                     navController = navController,
